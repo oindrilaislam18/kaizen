@@ -19,9 +19,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 
 export function TeamCard({ team, isOwner, onTeamUpdated, onTeamDeleted }) {
   const { toast } = useToast()
+  const { data: session } = useSession()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
