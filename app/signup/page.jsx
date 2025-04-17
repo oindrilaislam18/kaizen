@@ -63,14 +63,32 @@ export default function SignupPage() {
     setIsLoading(true)
 
     try {
+      // Set a timeout for the fetch request
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name, email, password }),
+        signal: controller.signal,
       })
 
+      clearTimeout(timeoutId)
+
+      // Handle non-JSON responses
+      const contentType = res.headers.get("content-type")
+      if (!contentType || !contentType.includes("application/json")) {
+        if (res.status === 504) {
+          throw new Error("Signup request timed out. Please try again later.")
+        } else {
+          throw new Error(`Server returned non-JSON response with status: ${res.status}`)
+        }
+      }
+
+      // Parse JSON response
       let data
       try {
         data = await res.json()
@@ -80,7 +98,7 @@ export default function SignupPage() {
       }
 
       if (!res.ok) {
-        throw new Error(data.error || "Signup failed")
+        throw new Error(data.error || `Signup failed with status: ${res.status}`)
       }
 
       if (!data.success) {
@@ -107,7 +125,12 @@ export default function SignupPage() {
       router.push("/dashboard")
       router.refresh()
     } catch (error) {
-      setError(error.message)
+      if (error.name === "AbortError") {
+        setError("Request timed out. Please check your connection and try again.")
+      } else {
+        setError(error.message)
+      }
+
       toast({
         title: "Error",
         description: error.message,
