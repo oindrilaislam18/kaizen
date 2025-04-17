@@ -122,7 +122,7 @@ export default function SignupPage() {
       }
 
       // Redirect to dashboard
-      router.push("/dashboard")
+      router.push("/dashboard/analytics")
       router.refresh()
     } catch (error) {
       if (error.name === "AbortError") {
