@@ -71,9 +71,19 @@ export default function SignupPage() {
         body: JSON.stringify({ name, email, password }),
       })
 
-      const data = await res.json()
+      let data
+      try {
+        data = await res.json()
+      } catch (parseError) {
+        console.error("Failed to parse response:", parseError)
+        throw new Error("Server returned an invalid response. Please try again later.")
+      }
 
       if (!res.ok) {
+        throw new Error(data.error || "Signup failed")
+      }
+
+      if (!data.success) {
         throw new Error(data.error || "Signup failed")
       }
 
@@ -94,7 +104,7 @@ export default function SignupPage() {
       }
 
       // Redirect to dashboard
-      router.push("/dashboard/analytics")
+      router.push("/dashboard")
       router.refresh()
     } catch (error) {
       setError(error.message)
