@@ -2,8 +2,10 @@ import { NextResponse } from "next/server"
 import { hashPassword } from "@/lib/auth-utils"
 import clientPromise from "@/lib/mongodb"
 
-// Update the MongoDB timeout to be longer
-const MONGODB_TIMEOUT = 15000 // 15 seconds
+// Maximum number of connection retries
+const MAX_RETRIES = 3
+// Base timeout (will be increased with each retry)
+const BASE_TIMEOUT = 5000
 
 export async function POST(request) {
   try {
@@ -37,16 +39,59 @@ export async function POST(request) {
       )
     }
 
-    // Get MongoDB client with timeout and retry
-    let client
-    try {
-      // Try to connect with timeout
-      const clientPromiseWithTimeout = Promise.race([
-        clientPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error("MongoDB connection timeout")), MONGODB_TIMEOUT)),
-      ])
+    // Implement retry logic for MongoDB operations
+    let lastError = null
+    let client = null
 
-      client = await clientPromiseWithTimeout
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`MongoDB connection attempt ${attempt} of ${MAX_RETRIES}`)
+
+        // Increase timeout with each retry
+        const timeout = BASE_TIMEOUT * attempt
+
+        // Try to connect with timeout
+        const clientPromiseWithTimeout = Promise.race([
+          clientPromise,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`MongoDB connection timeout (${timeout}ms)`)), timeout),
+          ),
+        ])
+
+        client = await clientPromiseWithTimeout
+        console.log("MongoDB connection successful")
+
+        // If we get here, connection was successful
+        break
+      } catch (error) {
+        lastError = error
+        console.error(`MongoDB connection attempt ${attempt} failed:`, error.message)
+
+        // If this is the last attempt, don't wait
+        if (attempt < MAX_RETRIES) {
+          // Wait before next retry (exponential backoff)
+          const backoffTime = 1000 * Math.pow(2, attempt - 1)
+          console.log(`Waiting ${backoffTime}ms before next attempt...`)
+          await new Promise((resolve) => setTimeout(resolve, backoffTime))
+        }
+      }
+    }
+
+    // If all connection attempts failed
+    if (!client) {
+      console.error("All MongoDB connection attempts failed")
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unable to connect to database after multiple attempts",
+          details: lastError?.message || "Unknown error",
+        },
+        { status: 500 },
+      )
+    }
+
+    // Now proceed with database operations
+    try {
       const db = client.db("kaizen")
 
       // Check if user already exists
@@ -68,10 +113,25 @@ export async function POST(request) {
       console.log("Password hashed successfully")
 
       // Create user
+      const settings = {
+        theme: "system",
+        notifications: {
+          email: true,
+          push: true,
+          taskReminders: true,
+          teamUpdates: true,
+        },
+        display: {
+          compactView: false,
+          showCompletedTasks: true,
+        },
+      }
+
       const result = await db.collection("users").insertOne({
         name,
         email,
         password: hashedPassword,
+        settings,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -91,22 +151,11 @@ export async function POST(request) {
         { status: 201 },
       )
     } catch (dbError) {
-      console.error("Database connection failed:", dbError)
-
-      // Provide more specific error messages based on the error type
-      let errorMessage = "Database operation failed"
-      if (dbError.message.includes("timeout")) {
-        errorMessage = "Database connection timed out. Please try again later."
-      } else if (dbError.name === "MongoNetworkError") {
-        errorMessage = "Database network error. Please check your connection."
-      } else if (dbError.name === "MongoServerSelectionError") {
-        errorMessage = "Unable to connect to database server. Please try again later."
-      }
-
+      console.error("Database operation failed:", dbError)
       return NextResponse.json(
         {
           success: false,
-          error: errorMessage,
+          error: "Database operation failed",
           details: dbError.message,
         },
         { status: 500 },

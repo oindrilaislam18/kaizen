@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server"
 import { getTasks, createTask } from "@/lib/db"
 import { ObjectId } from "mongodb"
+import { getAuthenticatedUser } from "@/lib/auth-helpers"
 
 // Get all tasks for a user
 export async function GET(request) {
   try {
-    // In a real app, you would get the userId from the session
-    // For now, we'll use a mock userId
-    const userId = "user123"
+    // Get the authenticated user
+    const user = await getAuthenticatedUser(request)
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userId = user.id
 
     const tasks = await getTasks(userId)
     return NextResponse.json(tasks)
@@ -22,8 +28,14 @@ export async function POST(request) {
     const body = await request.json()
     console.log("Creating task with data:", body)
 
-    // In a real app, you would get the userId from the session
-    const userId = "user123"
+    // Get the authenticated user
+    const user = await getAuthenticatedUser(request)
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userId = user.id
 
     const task = {
       _id: new ObjectId().toString(),

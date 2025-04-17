@@ -9,6 +9,7 @@ import { Search, Users, UserPlus } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { CreateTeamDialog } from "@/components/create-team-dialog"
 import { TeamCard } from "@/components/team-card"
+import { useUser } from "@clerk/nextjs"
 
 export default function TeamPage() {
   const { toast } = useToast()
@@ -16,6 +17,7 @@ export default function TeamPage() {
   const [teams, setTeams] = useState([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const { user } = useUser()
 
   // Fetch teams on component mount
   useEffect(() => {
@@ -96,7 +98,7 @@ export default function TeamPage() {
               <div className="flex justify-center p-8">
                 <p>Loading teams...</p>
               </div>
-            ) : filteredTeams.filter((team) => team.ownerId === "user123").length === 0 ? (
+            ) : filteredTeams.filter((team) => team.ownerId === user?.id).length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center p-8">
                   <Users className="h-12 w-12 text-muted-foreground mb-4" />
@@ -111,7 +113,7 @@ export default function TeamPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredTeams
-                  .filter((team) => team.ownerId === "user123")
+                  .filter((team) => team.ownerId === user?.id)
                   .map((team) => (
                     <TeamCard
                       key={team._id}
@@ -129,7 +131,7 @@ export default function TeamPage() {
               <div className="flex justify-center p-8">
                 <p>Loading teams...</p>
               </div>
-            ) : filteredTeams.filter((team) => team.ownerId !== "user123").length === 0 ? (
+            ) : filteredTeams.filter((team) => team.ownerId !== user?.id).length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center p-8">
                   <Users className="h-12 w-12 text-muted-foreground mb-4" />
@@ -140,7 +142,7 @@ export default function TeamPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredTeams
-                  .filter((team) => team.ownerId !== "user123")
+                  .filter((team) => team.ownerId !== user?.id)
                   .map((team) => (
                     <TeamCard
                       key={team._id}

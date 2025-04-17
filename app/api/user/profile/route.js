@@ -1,18 +1,25 @@
 import { NextResponse } from "next/server"
 import { getUserById, updateUser } from "@/lib/db"
+import { getAuthenticatedUser } from "@/lib/auth-helpers"
 
 export async function GET(request) {
   try {
-    // In a real app, you would get the userId from the session
-    const userId = "user123"
+    // Get the authenticated user
+    const user = await getAuthenticatedUser(request)
 
-    const user = await getUserById(userId)
     if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userId = user.id
+
+    const userDetails = await getUserById(userId)
+    if (!userDetails) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     // Don't return the password
-    const { password, ...userWithoutPassword } = user
+    const { password, ...userWithoutPassword } = userDetails
 
     return NextResponse.json(userWithoutPassword)
   } catch (error) {
@@ -23,13 +30,19 @@ export async function GET(request) {
 
 export async function PUT(request) {
   try {
-    // In a real app, you would get the userId from the session
-    const userId = "user123"
+    // Get the authenticated user
+    const user = await getAuthenticatedUser(request)
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userId = user.id
 
     const body = await request.json()
 
-    const user = await getUserById(userId)
-    if (!user) {
+    const userDetails = await getUserById(userId)
+    if (!userDetails) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 

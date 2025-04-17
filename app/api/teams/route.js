@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server"
 import { getTeams, createTeam } from "@/lib/db"
+import { getAuthenticatedUser } from "@/lib/auth-helpers"
 
 export async function GET(request) {
   try {
-    // In a real app, you would get the userId from the session
-    const userId = "user123"
+    // Get the authenticated user
+    const user = await getAuthenticatedUser(request)
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userId = user.id
 
     const teams = await getTeams(userId)
     return NextResponse.json(teams)
@@ -18,8 +25,14 @@ export async function POST(request) {
   try {
     const body = await request.json()
 
-    // In a real app, you would get the userId from the session
-    const userId = "user123"
+    // Get the authenticated user
+    const user = await getAuthenticatedUser(request)
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userId = user.id
 
     const team = {
       name: body.name,
