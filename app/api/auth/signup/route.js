@@ -2,8 +2,8 @@ import { NextResponse } from "next/server"
 import { hashPassword } from "@/lib/auth-utils"
 import clientPromise from "@/lib/mongodb"
 
-// Set a timeout for MongoDB operations
-const MONGODB_TIMEOUT = 5000 // 5 seconds
+// Update the MongoDB timeout to be longer
+const MONGODB_TIMEOUT = 15000 // 15 seconds
 
 export async function POST(request) {
   try {
@@ -37,14 +37,16 @@ export async function POST(request) {
       )
     }
 
+    // Get MongoDB client with timeout and retry
+    let client
     try {
-      // Get MongoDB client with timeout
+      // Try to connect with timeout
       const clientPromiseWithTimeout = Promise.race([
         clientPromise,
         new Promise((_, reject) => setTimeout(() => reject(new Error("MongoDB connection timeout")), MONGODB_TIMEOUT)),
       ])
 
-      const client = await clientPromiseWithTimeout
+      client = await clientPromiseWithTimeout
       const db = client.db("kaizen")
 
       // Check if user already exists
@@ -89,11 +91,22 @@ export async function POST(request) {
         { status: 201 },
       )
     } catch (dbError) {
-      console.error("Database operation failed:", dbError)
+      console.error("Database connection failed:", dbError)
+
+      // Provide more specific error messages based on the error type
+      let errorMessage = "Database operation failed"
+      if (dbError.message.includes("timeout")) {
+        errorMessage = "Database connection timed out. Please try again later."
+      } else if (dbError.name === "MongoNetworkError") {
+        errorMessage = "Database network error. Please check your connection."
+      } else if (dbError.name === "MongoServerSelectionError") {
+        errorMessage = "Unable to connect to database server. Please try again later."
+      }
+
       return NextResponse.json(
         {
           success: false,
-          error: "Database operation failed",
+          error: errorMessage,
           details: dbError.message,
         },
         { status: 500 },
