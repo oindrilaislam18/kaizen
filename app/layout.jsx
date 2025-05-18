@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "Kaizen - Task Management",
+  title: "Kaizen",
   description: "Efficiently organize, track, and manage your daily tasks",
 }
 
